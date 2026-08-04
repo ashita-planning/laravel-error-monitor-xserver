@@ -1,0 +1,13 @@
+/vendor/
+/composer.lock
+/.phpunit.cache/
+/.phpunit.result.cache
+/.phpstan/
+/coverage/
+/.idea/
+.DS_Store
+/.env
+*.log
+
+# Synthetic log fixtures are part of the test suite and must ship.
+!/tests/Fixtures/*.log
