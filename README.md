@@ -11,8 +11,12 @@ it resolves paths, hands readable files over through the core's
 ## Requirements
 
 - PHP 8.2 or newer
-- Laravel 10, 11, or 12
-- `ashita-planning/laravel-error-monitor`
+- Laravel 10, 11, 12, or 13 (Laravel 13 requires PHP 8.3 or newer)
+- `ashita-planning/laravel-error-monitor` ^1.2 (new shared setup API)
+
+## Guided setup
+
+After installation, see the core [setup guide](https://github.com/ashita-planning/laravel-error-monitor/blob/main/docs/setup.md) for missing-settings-only setup and Agent assistance.
 
 ## Installation
 
@@ -40,6 +44,16 @@ From then on the ordinary daily command picks the files up:
 ```bash
 php artisan error-monitor:run
 ```
+
+The GitHub adapter is optional and is not a dependency of this package.
+Schedule after the expected log generation time (07:00 Japan time is the core
+guide's example), and verify that both expected file dates are present. Running
+at 05:00 still targets yesterday and may leave its coverage incomplete; it does
+not switch to the day before yesterday. Missing files are skipped, so a success
+exit code alone does not prove full coverage.
+
+See the core's [scheduling guide](https://github.com/ashita-planning/laravel-error-monitor/blob/main/docs/scheduler.md)
+and [maintenance guide](https://github.com/ashita-planning/laravel-error-monitor/blob/main/docs/maintenance.md).
 
 ## Configuration
 

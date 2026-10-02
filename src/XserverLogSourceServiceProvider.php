@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Apkk\LaravelErrorMonitorXserver;
 
 use Apkk\LaravelErrorMonitor\ErrorMonitorServiceProvider;
+use Apkk\LaravelErrorMonitorXserver\Commands\XserverSetupCommand;
 use Apkk\LaravelErrorMonitorXserver\Commands\XserverStatusCommand;
 use Apkk\LaravelErrorMonitorXserver\Support\XserverLogFile;
 use Illuminate\Contracts\Foundation\Application;
@@ -77,7 +78,7 @@ final class XserverLogSourceServiceProvider extends ServiceProvider
         $this->registerAccessLogPattern();
 
         if ($this->app->runningInConsole()) {
-            $this->commands([XserverStatusCommand::class]);
+            $this->commands([XserverStatusCommand::class, XserverSetupCommand::class]);
         }
     }
 
