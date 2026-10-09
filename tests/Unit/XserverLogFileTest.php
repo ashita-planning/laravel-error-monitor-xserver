@@ -95,6 +95,29 @@ final class XserverLogFileTest extends TestCase
         $this->file('nonsense', '2026-08-04');
     }
 
+    public function test_start_date_candidates_and_coverage_cross_month_and_year_boundaries(): void
+    {
+        $timezone = new DateTimeZone('Asia/Tokyo');
+        foreach (['2001-01-01' => '20001231', '2001-02-01' => '20010131'] as $date => $previous) {
+            foreach (['access' => '04', 'error' => '03'] as $kind => $hour) {
+                // The local target day differs from its UTC calendar date.
+                $day = (new DateTimeImmutable($date.' 00:00:00', $timezone))->setTimezone(new DateTimeZone('UTC'))->setTimezone($timezone);
+                $files = XserverLogFile::candidatesFor($kind, $day, 'sv00000', 'example.invalid', self::TEMPLATE, 'start');
+                $this->assertSame([$previous, $day->format('Ymd')], array_map(static fn (XserverLogFile $file): string => $file->fileDate->format('Ymd'), $files));
+                $this->assertSame($day->modify('-1 day')->format('Y-m-d').' '.$hour.':00:00', $files[0]->metadata($timezone)['coverage_start_local']);
+                $this->assertSame($date.' '.$hour.':00:00', $files[0]->metadata($timezone)['coverage_end_local']);
+                $this->assertSame($date.' '.$hour.':00:00', $files[1]->metadata($timezone)['coverage_start_local']);
+                $this->assertSame($day->modify('+1 day')->format('Y-m-d').' '.$hour.':00:00', $files[1]->metadata($timezone)['coverage_end_local']);
+            }
+        }
+    }
+
+    public function test_unknown_file_date_basis_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        XserverLogFile::candidatesFor('access', new DateTimeImmutable('2001-01-01'), 'sv00000', 'example.invalid', self::TEMPLATE, 'typo');
+    }
+
     private function file(string $kind, string $date): XserverLogFile
     {
         return new XserverLogFile(

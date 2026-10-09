@@ -60,6 +60,7 @@ final class XserverLogSourceServiceProvider extends ServiceProvider
                 timezone: (string) $config->get('error-monitor-xserver.timezone', 'Asia/Tokyo'),
                 kinds: $kinds,
                 enabled: (bool) $config->get('error-monitor-xserver.enabled', false),
+                fileDateBasis: (string) $config->get('error-monitor-xserver.file_date_basis', XserverLogFile::DATE_END),
             );
         });
 

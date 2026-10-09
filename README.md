@@ -65,6 +65,7 @@ and [maintenance guide](https://github.com/ashita-planning/laravel-error-monitor
 | `domains` | `XSERVER_DOMAIN` | – | One or more domains, comma separated. |
 | `log_base_path` | `XSERVER_LOG_BASE_PATH` | `/home/{server_id}/{domain}/log` | Directory template. |
 | `timezone` | `XSERVER_LOG_TIMEZONE` | `Asia/Tokyo` | The server's own timezone — not the application's. |
+| `file_date_basis` | `XSERVER_LOG_FILE_DATE_BASIS` | `end` | Filename date identifies the rotation start (`start`) or end (`end`). |
 | `collect_access_log` | `XSERVER_COLLECT_ACCESS_LOG` | `true` | Offer access logs. |
 | `collect_error_log` | `XSERVER_COLLECT_ERROR_LOG` | `true` | Offer error logs. |
 | `register_access_log_pattern` | `XSERVER_REGISTER_ACCESS_LOG_PATTERN` | `true` | Teach the core's parser the virtual-host prefix. |
@@ -79,23 +80,42 @@ Both kinds live in `/home/{server_id}/{domain}/log/` and are written around
 {domain}.error_log_YYYYMMDD.gz
 ```
 
-### A file is named after the morning it was written
+### Configure the filename date convention
 
-This is the detail worth internalising, because getting it wrong loses data
-silently:
+The default `end` preserves the adapter's historical convention and candidate
+selection. If the account names files by their **start date**, set:
 
-| File | Covers |
-| --- | --- |
-| `…access_log_20260804.gz` | 2026-08-03 **04:00** → 2026-08-04 **04:00** |
-| `…error_log_20260804.gz` | 2026-08-03 **03:00** → 2026-08-04 **03:00** |
+```dotenv
+XSERVER_LOG_FILE_DATE_BASIS=start
+```
 
-So the file dated the 4th is mostly *about the 3rd*, and the two kinds do not
-even share a boundary. Investigating a single day therefore means reading **two
-files per kind** — the day's own and the next morning's — which is what this
-adapter offers. Reading only `…_20260803.gz` to investigate the 3rd would miss
-everything after 04:00 that day.
+The guided setup also accepts `--file-date-basis=start` and preserves existing
+settings. For an existing published config, add the `file_date_basis` key from
+this package's config; an existing hard-coded key must be updated explicitly.
+Rebuild the application's configuration cache if used.
 
-Each file reports its real bounds in `metadata`, so nothing downstream has to
+| Convention | Candidate filename dates for target day D | Coverage of a file dated F |
+| --- | --- | --- |
+| `end` (default) | D, D+1 | F-1 at boundary → F at boundary |
+| `start` | D-1, D | F at boundary → F+1 at boundary |
+
+Coverage ends are exclusive. The retained boundaries are 04:00 for access and
+03:00 for error, in `timezone`; access and error are treated separately.
+For example, synthetic start-date files named `20001231` and `20010101` cover
+the early and daytime portions of `2001-01-01`. No `20010102` file is expected.
+
+Verify the filename convention **and each kind's rotation time** against the
+account's actual specification before switching. These settings and synthetic
+tests do not prove that every XServer environment uses these hours or either
+particular naming convention. Other rotation hours are not configurable here.
+An unknown convention is rejected rather than silently selecting the wrong pair.
+
+`error-monitor:xserver-status --date=2001-01-01 --json` reports
+`file_date_basis`, available files with coverage metadata, and required files
+that are missing or unreadable. Missing files do not prove why they are absent.
+This library change does not update or enable any consuming application.
+
+Each file reports its configured bounds in `metadata`, so nothing downstream has to
 guess:
 
 ```php
@@ -104,6 +124,7 @@ guess:
     'domain' => 'example.com',
     'server_identifier' => 'sv00000',
     'xserver_file_date' => '2026-08-04',
+    'xserver_file_date_basis' => 'end',
     'xserver_log_kind' => 'access',
     'coverage_start_local' => '2026-08-03 04:00:00',
     'coverage_end_local' => '2026-08-04 04:00:00',
