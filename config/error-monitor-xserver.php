@@ -26,6 +26,11 @@ return [
     // application's timezone and should not follow it.
     'timezone' => (string) env('XSERVER_LOG_TIMEZONE', 'Asia/Tokyo'),
 
+    // Meaning of the date in the filename: end (legacy) or start. Verify the
+    // convention for this account before changing it. Boundaries stay at
+    // 04:00 for access and 03:00 for error, in the configured timezone.
+    'file_date_basis' => (string) env('XSERVER_LOG_FILE_DATE_BASIS', 'end'),
+
     // Which of the two log kinds to offer.
     'collect_access_log' => (bool) env('XSERVER_COLLECT_ACCESS_LOG', true),
     'collect_error_log' => (bool) env('XSERVER_COLLECT_ERROR_LOG', true),

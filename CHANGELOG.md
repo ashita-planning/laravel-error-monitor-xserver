@@ -5,6 +5,16 @@ introduction of this file. Earlier release history has not been reconstructed.
 
 ## [Unreleased]
 
+### Added
+
+- Support opt-in start-date filenames through `XSERVER_LOG_FILE_DATE_BASIS=start`
+  and `error-monitor:xserver-setup --file-date-basis=start`. Default `end`
+  preserves existing candidate dates and coverage boundaries.
+- Report the convention in status JSON and file metadata; describe required
+  missing or unreadable files accurately in human-readable status output.
+- Add synthetic gzip integration regressions for both kinds and conventions,
+  month/year rollover, target-day filtering and rerun deduplication.
+
 ## [1.2.0] - 2026-10-03
 
 ### Added

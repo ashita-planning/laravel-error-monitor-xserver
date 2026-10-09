@@ -12,22 +12,19 @@ use InvalidArgumentException;
 /**
  * One XServer log file: where it lives, and what period it actually holds.
  *
- * The second half is the part worth reading carefully. XServer names a file by
- * the morning it was written, not by the day it describes, and the two kinds do
- * not even share a boundary:
- *
- *   {domain}.access_log_YYYYMMDD.gz   covers YYYY-MM-(DD-1) 04:00 to YYYY-MM-DD 04:00
- *   {domain}.error_log_YYYYMMDD.gz    covers YYYY-MM-(DD-1) 03:00 to YYYY-MM-DD 03:00
- *
- * So a file dated the 4th is mostly about the 3rd, and reading the file dated
- * the 3rd to investigate the 3rd would miss everything after 04:00 that day.
- * {@see XserverLogFile::candidatesFor()} is what makes that not a footgun.
+ * File dates can identify either the start or end of a rotation period.
+ * The default preserves the historical end-date convention and boundaries;
+ * operators must verify the convention against their hosting environment.
  */
 final readonly class XserverLogFile
 {
     public const ACCESS = 'access';
 
     public const ERROR = 'error';
+
+    public const DATE_START = 'start';
+
+    public const DATE_END = 'end';
 
     /** Local hour each kind of file starts and ends at. */
     private const COVERAGE_HOUR = [
@@ -55,7 +52,10 @@ final readonly class XserverLogFile
         public string $domain,
         public string $serverId,
         public DateTimeImmutable $fileDate,
+        public string $fileDateBasis = self::DATE_END,
     ) {
+        self::validateFileDateBasis($fileDateBasis);
+
         if (! array_key_exists($kind, self::COVERAGE_HOUR)) {
             throw new InvalidArgumentException(sprintf('[%s] is not a known XServer log kind.', $kind));
         }
@@ -64,9 +64,8 @@ final readonly class XserverLogFile
     /**
      * Files that together hold every entry of the given local day.
      *
-     * Two of them, always: the file named after the day covers only its first
-     * few hours, and everything from 03:00 or 04:00 onwards is in the file
-     * named after the following morning.
+     * End-date files use D and D+1; start-date files use D-1 and D.
+     * Each pair overlaps the target day at the kind's rotation boundary.
      *
      * @return array<int, self>
      */
@@ -76,11 +75,13 @@ final readonly class XserverLogFile
         string $serverId,
         string $domain,
         string $basePathTemplate,
+        string $fileDateBasis = self::DATE_END,
     ): array {
+        self::validateFileDateBasis($fileDateBasis);
         $candidates = [];
 
-        foreach ([0, 1] as $offset) {
-            $fileDate = $day->modify(sprintf('+%d day', $offset));
+        foreach ($fileDateBasis === self::DATE_START ? [-1, 0] : [0, 1] as $offset) {
+            $fileDate = $day->modify(sprintf('%+d day', $offset));
 
             $candidates[] = new self(
                 kind: $kind,
@@ -88,10 +89,18 @@ final readonly class XserverLogFile
                 domain: $domain,
                 serverId: $serverId,
                 fileDate: $fileDate,
+                fileDateBasis: $fileDateBasis,
             );
         }
 
         return $candidates;
+    }
+
+    public static function validateFileDateBasis(string $basis): void
+    {
+        if (! in_array($basis, [self::DATE_START, self::DATE_END], true)) {
+            throw new InvalidArgumentException('XServer file_date_basis must be start or end.');
+        }
     }
 
     public static function pathFor(
@@ -128,9 +137,11 @@ final readonly class XserverLogFile
     /** Last moment this file holds, in the server's own timezone. */
     public function coverageEnd(DateTimeZone $timezone): DateTimeImmutable
     {
-        return $this->fileDate
+        $end = $this->fileDate
             ->setTimezone($timezone)
             ->setTime(self::COVERAGE_HOUR[$this->kind], 0, 0);
+
+        return $this->fileDateBasis === self::DATE_START ? $end->modify('+1 day') : $end;
     }
 
     /**
@@ -148,6 +159,7 @@ final readonly class XserverLogFile
             'domain' => $this->domain,
             'server_identifier' => $this->serverId,
             'xserver_file_date' => $this->fileDate->format('Y-m-d'),
+            'xserver_file_date_basis' => $this->fileDateBasis,
             'xserver_log_kind' => $this->kind,
             'coverage_start_local' => $this->coverageStart($timezone)->format('Y-m-d H:i:s'),
             'coverage_end_local' => $this->coverageEnd($timezone)->format('Y-m-d H:i:s'),

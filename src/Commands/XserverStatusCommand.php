@@ -38,6 +38,7 @@ final class XserverStatusCommand extends Command
 
         $status = [
             'enabled' => (bool) config('error-monitor-xserver.enabled', false),
+            'file_date_basis' => (string) config('error-monitor-xserver.file_date_basis', 'end'),
             'source_id' => $source->id(),
             'window' => $window->toArray(),
             'available' => $files,
@@ -52,7 +53,8 @@ final class XserverStatusCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->components->info(sprintf('%d file(s) available, %d not written yet.', count($files), count($status['missing'])));
+        $this->components->twoColumnDetail('Filename date basis', $status['file_date_basis']);
+        $this->components->info(sprintf('%d file(s) available, %d missing or unreadable.', count($files), count($status['missing'])));
 
         foreach ($files as $file) {
             $this->components->twoColumnDetail(
@@ -62,7 +64,7 @@ final class XserverStatusCommand extends Command
         }
 
         foreach ($status['missing'] as $path) {
-            $this->components->twoColumnDetail(basename((string) $path), 'not present');
+            $this->components->twoColumnDetail(basename((string) $path), 'missing or unreadable');
         }
 
         return self::SUCCESS;

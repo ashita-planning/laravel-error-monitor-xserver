@@ -15,12 +15,13 @@ final class XserverSetupCommandTest extends TestCase
         $this->app->useEnvironmentPath($directory);
         $this->app->useConfigPath($directory);
         try {
-            $options = ['--server-id' => 'sv00000', '--domain' => 'example.invalid', '--enable' => true];
+            $options = ['--server-id' => 'sv00000', '--domain' => 'example.invalid', '--enable' => true, '--file-date-basis' => 'start'];
             $this->artisan('error-monitor:xserver-setup', $options + ['--dry-run' => true])->assertSuccessful();
             $this->assertFileDoesNotExist($directory.'/.env');
             $this->artisan('error-monitor:xserver-setup', $options)->assertSuccessful();
             $content = file_get_contents($directory.'/.env');
-            $this->artisan('error-monitor:xserver-setup', $options)->assertSuccessful();
+            $this->assertStringContainsString('XSERVER_LOG_FILE_DATE_BASIS="start"', $content);
+            $this->artisan('error-monitor:xserver-setup', array_replace($options, ['--file-date-basis' => 'end']))->assertSuccessful();
             $this->assertSame($content, file_get_contents($directory.'/.env'));
             $this->assertStringContainsString('XSERVER_DOMAIN="example.invalid"', $content);
         } finally {
@@ -28,6 +29,11 @@ final class XserverSetupCommandTest extends TestCase
             @unlink($directory.'/error-monitor-xserver.php');
             rmdir($directory);
         }
+    }
+
+    public function test_unknown_file_date_basis_is_rejected_before_writing(): void
+    {
+        $this->artisan('error-monitor:xserver-setup', ['--file-date-basis' => 'typo', '--dry-run' => true])->assertExitCode(2);
     }
 
     public function test_path_traversal_is_rejected(): void

@@ -19,12 +19,8 @@ use DateTimeZone;
  * or removes the files it reads - the originals belong to the hosting account,
  * not to this package.
  *
- * The one piece of real judgement here is which files to offer. XServer names a
- * log after the morning it was written, and the file dated the 4th mostly
- * describes the 3rd, so investigating a single day means offering that day's
- * file and the next one and letting the core's analysis window decide what
- * actually falls inside. Offering only the day's own file would silently lose
- * everything after 04:00.
+ * Candidate selection follows the configured file-date convention. The core
+ * retains responsibility for filtering entries to the analysis window.
  */
 final class XserverLogSource implements ServerLogSource
 {
@@ -48,7 +44,10 @@ final class XserverLogSource implements ServerLogSource
         private readonly string $timezone = 'Asia/Tokyo',
         private readonly array $kinds = [XserverLogFile::ACCESS, XserverLogFile::ERROR],
         private readonly bool $enabled = true,
-    ) {}
+        private readonly string $fileDateBasis = XserverLogFile::DATE_END,
+    ) {
+        XserverLogFile::validateFileDateBasis($fileDateBasis);
+    }
 
     public function id(): string
     {
@@ -72,7 +71,7 @@ final class XserverLogSource implements ServerLogSource
         foreach ($this->days($window, $timezone) as $day) {
             foreach ($this->domains as $domain) {
                 foreach ($this->kinds as $kind) {
-                    foreach (XserverLogFile::candidatesFor($kind, $day, $this->serverId, $domain, $this->basePathTemplate) as $candidate) {
+                    foreach (XserverLogFile::candidatesFor($kind, $day, $this->serverId, $domain, $this->basePathTemplate, $this->fileDateBasis) as $candidate) {
                         $file = $this->offer($candidate, $timezone);
 
                         if ($file instanceof CollectedLogFileData) {
@@ -108,8 +107,7 @@ final class XserverLogSource implements ServerLogSource
     private function days(?AnalysisWindowData $window, DateTimeZone $timezone): array
     {
         if ($window === null) {
-            // No period in mind: yesterday is the day a daily run is about, and
-            // the candidate logic already reaches into today's file for it.
+            // No period in mind: collect the files covering yesterday.
             return [(new DateTimeImmutable('now', $timezone))->modify('-1 day')->setTime(0, 0, 0)];
         }
 
