@@ -72,6 +72,7 @@ final class FileDateBasisTest extends TestCase
             unlink($directory.'/example.invalid.access_log_20001231.gz');
             chmod($unreadable, 0000);
             $this->assertFalse(is_readable($unreadable));
+            $this->withoutMockingConsoleOutput();
             Artisan::call('error-monitor:xserver-status', ['--date' => '2001-01-01', '--json' => true]);
             $status = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
             $this->assertSame('start', $status['file_date_basis']);
@@ -80,8 +81,8 @@ final class FileDateBasisTest extends TestCase
                 $directory.'/example.invalid.access_log_20001231.gz', $unreadable,
             ], $status['missing']);
             $this->assertStringNotContainsString('20010102.gz', Artisan::output());
-            $this->artisan('error-monitor:xserver-status', ['--date' => '2001-01-01'])
-                ->expectsOutputToContain('missing or unreadable')->assertSuccessful();
+            $this->assertSame(0, Artisan::call('error-monitor:xserver-status', ['--date' => '2001-01-01']));
+            $this->assertStringContainsString('missing or unreadable', Artisan::output());
         } finally {
             chmod($unreadable, 0600);
             $this->removeFixtures($directory);
